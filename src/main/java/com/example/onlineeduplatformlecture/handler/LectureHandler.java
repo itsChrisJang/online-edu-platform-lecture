@@ -11,10 +11,9 @@ import com.example.onlineeduplatformlecture.model.Rating;
 import com.example.onlineeduplatformlecture.model.Score;
 import com.example.onlineeduplatformlecture.repository.ScoreRepository;
 import com.example.onlineeduplatformlecture.repository.EnrolmentRepository;
-import com.example.onlineeduplatformlecture.service.ContentService;
-import com.example.onlineeduplatformlecture.service.EnrolmentService;
-import com.example.onlineeduplatformlecture.service.LectureService;
-import com.example.onlineeduplatformlecture.service.ScoreService;
+import com.example.onlineeduplatformlecture.service.*;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -23,6 +22,8 @@ import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+
+@Slf4j
 @Component
 public class LectureHandler {
 
@@ -34,7 +35,8 @@ public class LectureHandler {
     private final ContentService contentService;
     private final ScoreService scoreService;
     private final EnrolmentRepository enrolmentRepository;
-  
+    private final LectureProducerService lectureProducerService;
+
     public LectureHandler(
             LectureRepository lectureRepository,
             ContentRepository contentRepository,
@@ -43,7 +45,8 @@ public class LectureHandler {
             LectureService lectureService,
             EnrolmentService enrolmentService,
             ContentService contentService,
-            ScoreService scoreService) {
+            ScoreService scoreService,
+            LectureProducerService lectureProducerService) {
         this.lectureRepository = lectureRepository;
         this.contentRepository = contentRepository;
         this.matchingRepository = matchingRepository;
@@ -52,6 +55,7 @@ public class LectureHandler {
         this.enrolmentService = enrolmentService;
         this.contentService = contentService;
         this.scoreService = scoreService;
+        this.lectureProducerService = lectureProducerService;
     }
 
     @Autowired
@@ -82,9 +86,15 @@ public class LectureHandler {
                     System.out.println(throwable.getMessage());
                     return Mono.error(new RuntimeException(throwable));
                 });
-
-        return ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).body(
-                lectureMono.flatMap(this.lectureRepository::save), Lecture.class);
+        return lectureMono
+                .flatMap(lecture -> {
+                    System.out.println(lecture.getTitle());
+                    System.out.println(lecture.getLocation());
+                    lectureProducerService.sendMessage(lecture.getTitle(), lecture.getLocation());
+                    return ServerResponse.ok()
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .body(this.lectureRepository.save(lecture), Lecture.class);
+                }).log();
     };
 //    Mono<ServerResponse> changeExposeLecture(ServerRequest serverRequest);
 //
